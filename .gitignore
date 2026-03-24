@@ -1,12 +1,83 @@
-.DS_Store
-.idea
-.ipynb_checkpoints/
-.vscode
-__pycache__/
+# ── Training outputs ──────────────────────────────────
+out-*/
+*.pt
 *.bin
 *.pkl
-*.pt
-*.pyc
-input.txt
-env/
+
+# ── Dataset files (too large for GitHub) ─────────────
+data/*/train.bin
+data/*/val.bin
+data/*/test.bin
+data/**/*.bin
+
+# ── Python ───────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+eggs/
+parts/
+var/
+sdist/
+develop-eggs/
+.installed.cfg
+lib/
+lib64/
+
+# ── Virtual environments ──────────────────────────────
 venv/
+env/
+ENV/
+.venv/
+.env
+
+# ── Jupyter notebooks ────────────────────────────────
+.ipynb_checkpoints/
+*.ipynb
+
+# ── Logs and monitoring ───────────────────────────────
+*.log
+wandb/
+runs/
+logs/
+lightning_logs/
+
+# ── IDE and OS files ──────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── CUDA and compiled files ───────────────────────────
+*.so
+*.dll
+*.dylib
+*.pth.tar
+
+# ── Temporary files ───────────────────────────────────
+*.tmp
+*.temp
+tmp/
+temp/
+
+# ──────────────────────────────────────────────────────
+# WHAT GETS PUSHED TO GITHUB (everything not listed above)
+# ──────────────────────────────────────────────────────
+# ✅ model.py
+# ✅ train.py
+# ✅ sample.py
+# ✅ config/train_myslm.py
+# ✅ data/tinystories/prepare.py
+# ✅ eval_bpb.py
+# ✅ export_model.py
+# ✅ verify.py
+# ✅ generate.py
+# ✅ README.md
