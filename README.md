@@ -1,234 +1,230 @@
+# TamilSLM — A 30.7MB Language Model Built in One Day
 
-# nanoGPT
+> *"I had zero knowledge about language models. I built one anyway."*
 
-![nanoGPT](assets/nanogpt.jpg)
-
-
----
-
-**Update Nov 2025** nanoGPT has a new and improved cousin called [nanochat](https://github.com/karpathy/nanochat). It is very likely you meant to use/find nanochat instead. nanoGPT (this repo) is now very old and deprecated but I will leave it up for posterity.
+Built from scratch in under 24 hours on an RTX 3050 4GB GPU.
+No pretrained weights. No API calls. Just a transformer, a dataset, and a lot of loss going down.
 
 ---
 
-The simplest, fastest repository for training/finetuning medium-sized GPTs. It is a rewrite of [minGPT](https://github.com/karpathy/minGPT) that prioritizes teeth over education. Still under active development, but currently the file `train.py` reproduces GPT-2 (124M) on OpenWebText, running on a single 8XA100 40GB node in about 4 days of training. The code itself is plain and readable: `train.py` is a ~300-line boilerplate training loop and `model.py` a ~300-line GPT model definition, which can optionally load the GPT-2 weights from OpenAI. That's it.
+## What this is
 
-![repro124m](assets/gpt2_124M_loss.png)
+This is a small language model (SLM) trained entirely from scratch on the TinyStories dataset. It generates grammatically correct English stories, fits in 30.7MB, and was built as a first step toward competing in OpenAI's **Parameter Golf competition** — where the goal is to build the most capable language model under 16MB.
 
-Because the code is so simple, it is very easy to hack to your needs, train new models from scratch, or finetune pretrained checkpoints (e.g. biggest one currently available as a starting point would be the GPT-2 1.3B model from OpenAI).
+This repository documents the full pipeline: data preparation → tokenization → transformer training → evaluation → export. Every file here was written by hand. The architecture is based on nanoGPT but the config, training setup, evaluation scripts, and export pipeline are custom-built for this size target.
 
-## install
+---
 
-```
-pip install torch numpy transformers datasets tiktoken wandb tqdm
-```
+## The numbers
 
-Dependencies:
+| Metric | Value |
+|---|---|
+| **Final model size** | 30.7 MB |
+| **Parameters** | 16.08 million |
+| **Architecture** | 4 layers / 4 heads / 256 dim |
+| **Val loss** | 1.7955 nats |
+| **Training steps** | 10,000 |
+| **Training time** | ~4 hours |
+| **GPU** | RTX 3050 4GB VRAM |
+| **Dataset** | TinyStories (roneneldan/TinyStories) |
+| **Tokenizer** | GPT-2 BPE (tiktoken, vocab 50,257) |
 
-- [pytorch](https://pytorch.org) <3
-- [numpy](https://numpy.org/install/) <3
--  `transformers` for huggingface transformers <3 (to load GPT-2 checkpoints)
--  `datasets` for huggingface datasets <3 (if you want to download + preprocess OpenWebText)
--  `tiktoken` for OpenAI's fast BPE code <3
--  `wandb` for optional logging <3
--  `tqdm` for progress bars <3
+---
 
-## quick start
+## Sample output
 
-If you are not a deep learning professional and you just want to feel the magic and get your feet wet, the fastest way to get started is to train a character-level GPT on the works of Shakespeare. First, we download it as a single (1MB) file and turn it from raw text into one large stream of integers:
-
-```sh
-python data/shakespeare_char/prepare.py
-```
-
-This creates a `train.bin` and `val.bin` in that data directory. Now it is time to train your GPT. The size of it very much depends on the computational resources of your system:
-
-**I have a GPU**. Great, we can quickly train a baby GPT with the settings provided in the [config/train_shakespeare_char.py](config/train_shakespeare_char.py) config file:
-
-```sh
-python train.py config/train_shakespeare_char.py
-```
-
-If you peek inside it, you'll see that we're training a GPT with a context size of up to 256 characters, 384 feature channels, and it is a 6-layer Transformer with 6 heads in each layer. On one A100 GPU this training run takes about 3 minutes and the best validation loss is 1.4697. Based on the configuration, the model checkpoints are being written into the `--out_dir` directory `out-shakespeare-char`. So once the training finishes we can sample from the best model by pointing the sampling script at this directory:
-
-```sh
-python sample.py --out_dir=out-shakespeare-char
-```
-
-This generates a few samples, for example:
+Prompt: `"Once upon a time"`
 
 ```
-ANGELO:
-And cowards it be strawn to my bed,
-And thrust the gates of my threats,
-Because he that ale away, and hang'd
-An one with him.
+Once upon a time, in a small village, there lived a little girl named Lily.
+She had a small box of toys that she loved very much. Her toys were very
+fragile, but she knew that her mommy and daddy would be happy.
 
-DUKE VINCENTIO:
-I thank your eyes against it.
-
-DUKE VINCENTIO:
-Then will answer him to save the malm:
-And what have you tyrannous shall do this?
-
-DUKE VINCENTIO:
-If you have done evils of all disposition
-To end his power, the day of thrust for a common men
-That I leave, to fight with over-liking
-Hasting in a roseman.
+One day, Lily's mommy and daddy went for a walk in the forest. They saw
+some birds and flowers and butterflies. Lily saw a deer and said...
 ```
 
-lol  `¯\_(ツ)_/¯`. Not bad for a character-level model after 3 minutes of training on a GPU. Better results are quite likely obtainable by instead finetuning a pretrained GPT-2 model on this dataset (see finetuning section later).
+No fine-tuning. No RLHF. Just a transformer that learned story structure
+from data — character introduction, setting, conflict, action — purely from
+predicting the next token 328 million times.
 
-**I only have a macbook** (or other cheap computer). No worries, we can still train a GPT but we want to dial things down a notch. I recommend getting the bleeding edge PyTorch nightly ([select it here](https://pytorch.org/get-started/locally/) when installing) as it is currently quite likely to make your code more efficient. But even without it, a simple train run could look as follows:
+---
 
-```sh
-python train.py config/train_shakespeare_char.py --device=cpu --compile=False --eval_iters=20 --log_interval=1 --block_size=64 --batch_size=12 --n_layer=4 --n_head=4 --n_embd=128 --max_iters=2000 --lr_decay_iters=2000 --dropout=0.0
-```
-
-Here, since we are running on CPU instead of GPU we must set both `--device=cpu` and also turn off PyTorch 2.0 compile with `--compile=False`. Then when we evaluate we get a bit more noisy but faster estimate (`--eval_iters=20`, down from 200), our context size is only 64 characters instead of 256, and the batch size only 12 examples per iteration, not 64. We'll also use a much smaller Transformer (4 layers, 4 heads, 128 embedding size), and decrease the number of iterations to 2000 (and correspondingly usually decay the learning rate to around max_iters with `--lr_decay_iters`). Because our network is so small we also ease down on regularization (`--dropout=0.0`). This still runs in about ~3 minutes, but gets us a loss of only 1.88 and therefore also worse samples, but it's still good fun:
-
-```sh
-python sample.py --out_dir=out-shakespeare-char --device=cpu
-```
-Generates samples like this:
+## Project structure
 
 ```
-GLEORKEN VINGHARD III:
-Whell's the couse, the came light gacks,
-And the for mought you in Aut fries the not high shee
-bot thou the sought bechive in that to doth groan you,
-No relving thee post mose the wear
+nanoGPT/
+│
+├── model.py                        # transformer architecture (nanoGPT)
+├── train.py                        # training loop (nanoGPT)
+├── sample.py                       # generation script (nanoGPT)
+│
+├── config/
+│   └── train_myslm.py              # ← my custom config (4L/4H/256D)
+│
+├── data/
+│   └── tinystories/
+│       └── prepare.py              # ← download + tokenize dataset
+│
+├── eval_bpb.py                     # ← compute bits-per-byte score
+├── export_model.py                 # ← strip optimizer, convert to fp16
+├── generate.py                     # ← clean generation script
+└── verify.py                       # ← final model verification
 ```
 
-Not bad for ~3 minutes on a CPU, for a hint of the right character gestalt. If you're willing to wait longer, feel free to tune the hyperparameters, increase the size of the network, the context length (`--block_size`), the length of training, etc.
+Files marked ← were written for this project specifically.
+`model.py`, `train.py`, `sample.py` are from karpathy/nanoGPT unchanged.
 
-Finally, on Apple Silicon Macbooks and with a recent PyTorch version make sure to add `--device=mps` (short for "Metal Performance Shaders"); PyTorch then uses the on-chip GPU that can *significantly* accelerate training (2-3X) and allow you to use larger networks. See [Issue 28](https://github.com/karpathy/nanoGPT/issues/28) for more.
+---
 
-## reproducing GPT-2
+## How to reproduce this
 
-A more serious deep learning professional may be more interested in reproducing GPT-2 results. So here we go - we first tokenize the dataset, in this case the [OpenWebText](https://openwebtext2.readthedocs.io/en/latest/), an open reproduction of OpenAI's (private) WebText:
+### 1. Clone and install
 
-```sh
-python data/openwebtext/prepare.py
+```bash
+git clone https://github.com/YOURUSERNAME/YOURREPO.git
+cd YOURREPO
+
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+pip install numpy transformers datasets tiktoken tqdm
 ```
 
-This downloads and tokenizes the [OpenWebText](https://huggingface.co/datasets/openwebtext) dataset. It will create a `train.bin` and `val.bin` which holds the GPT2 BPE token ids in one sequence, stored as raw uint16 bytes. Then we're ready to kick off training. To reproduce GPT-2 (124M) you'll want at least an 8X A100 40GB node and run:
+### 2. Verify your GPU
 
-```sh
-torchrun --standalone --nproc_per_node=8 train.py config/train_gpt2.py
+```bash
+python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
 ```
 
-This will run for about 4 days using PyTorch Distributed Data Parallel (DDP) and go down to loss of ~2.85. Now, a GPT-2 model just evaluated on OWT gets a val loss of about 3.11, but if you finetune it it will come down to ~2.85 territory (due to an apparent domain gap), making the two models ~match.
+### 3. Prepare the dataset
 
-If you're in a cluster environment and you are blessed with multiple GPU nodes you can make GPU go brrrr e.g. across 2 nodes like:
-
-```sh
-# Run on the first (master) node with example IP 123.456.123.456:
-torchrun --nproc_per_node=8 --nnodes=2 --node_rank=0 --master_addr=123.456.123.456 --master_port=1234 train.py
-# Run on the worker node:
-torchrun --nproc_per_node=8 --nnodes=2 --node_rank=1 --master_addr=123.456.123.456 --master_port=1234 train.py
+```bash
+mkdir -p data/tinystories
+python data/tinystories/prepare.py
 ```
 
-It is a good idea to benchmark your interconnect (e.g. iperf3). In particular, if you don't have Infiniband then also prepend `NCCL_IB_DISABLE=1` to the above launches. Your multinode training will work, but most likely _crawl_. By default checkpoints are periodically written to the `--out_dir`. We can sample from the model by simply `python sample.py`.
+This downloads TinyStories from HuggingFace and tokenizes it into
+`train.bin` (~400MB) and `val.bin` (~20MB).
 
-Finally, to train on a single GPU simply run the `python train.py` script. Have a look at all of its args, the script tries to be very readable, hackable and transparent. You'll most likely want to tune a number of those variables depending on your needs.
+### 4. Train
 
-## baselines
-
-OpenAI GPT-2 checkpoints allow us to get some baselines in place for openwebtext. We can get the numbers as follows:
-
-```sh
-$ python train.py config/eval_gpt2.py
-$ python train.py config/eval_gpt2_medium.py
-$ python train.py config/eval_gpt2_large.py
-$ python train.py config/eval_gpt2_xl.py
+```bash
+python train.py config/train_myslm.py
 ```
 
-and observe the following losses on train and val:
+Watch the loss drop. Step 0 starts at ~10.9. By step 10,000 it's at ~1.71.
+That descent is the model learning English.
 
-| model | params | train loss | val loss |
-| ------| ------ | ---------- | -------- |
-| gpt2 | 124M         | 3.11  | 3.12     |
-| gpt2-medium | 350M  | 2.85  | 2.84     |
-| gpt2-large | 774M   | 2.66  | 2.67     |
-| gpt2-xl | 1558M     | 2.56  | 2.54     |
+On an RTX 3050 4GB this takes about 4 hours. You can stop at 5,000 steps
+and it already generates readable text.
 
-However, we have to note that GPT-2 was trained on (closed, never released) WebText, while OpenWebText is just a best-effort open reproduction of this dataset. This means there is a dataset domain gap. Indeed, taking the GPT-2 (124M) checkpoint and finetuning on OWT directly for a while reaches loss down to ~2.85. This then becomes the more appropriate baseline w.r.t. reproduction.
-
-## finetuning
-
-Finetuning is no different than training, we just make sure to initialize from a pretrained model and train with a smaller learning rate. For an example of how to finetune a GPT on new text go to `data/shakespeare` and run `prepare.py` to download the tiny shakespeare dataset and render it into a `train.bin` and `val.bin`, using the OpenAI BPE tokenizer from GPT-2. Unlike OpenWebText this will run in seconds. Finetuning can take very little time, e.g. on a single GPU just a few minutes. Run an example finetuning like:
-
-```sh
-python train.py config/finetune_shakespeare.py
+If you hit CUDA out of memory, open `config/train_myslm.py` and change:
+```python
+batch_size = 4                  # was 8
+gradient_accumulation_steps = 32  # was 16
 ```
 
-This will load the config parameter overrides in `config/finetune_shakespeare.py` (I didn't tune them much though). Basically, we initialize from a GPT2 checkpoint with `init_from` and train as normal, except shorter and with a small learning rate. If you're running out of memory try decreasing the model size (they are `{'gpt2', 'gpt2-medium', 'gpt2-large', 'gpt2-xl'}`) or possibly decreasing the `block_size` (context length). The best checkpoint (lowest validation loss) will be in the `out_dir` directory, e.g. in `out-shakespeare` by default, per the config file. You can then run the code in `sample.py --out_dir=out-shakespeare`:
+### 5. Generate text
 
-```
-THEODORE:
-Thou shalt sell me to the highest bidder: if I die,
-I sell thee to the first; if I go mad,
-I sell thee to the second; if I
-lie, I sell thee to the third; if I slay,
-I sell thee to the fourth: so buy or sell,
-I tell thee again, thou shalt not sell my
-possession.
-
-JULIET:
-And if thou steal, thou shalt not sell thyself.
-
-THEODORE:
-I do not steal; I sell the stolen goods.
-
-THEODORE:
-Thou know'st not what thou sell'st; thou, a woman,
-Thou art ever a victim, a thing of no worth:
-Thou hast no right, no right, but to be sold.
+```bash
+python generate.py
 ```
 
-Whoa there, GPT, entering some dark place over there. I didn't really tune the hyperparameters in the config too much, feel free to try!
+### 6. Evaluate bpb score
 
-## sampling / inference
-
-Use the script `sample.py` to sample either from pre-trained GPT-2 models released by OpenAI, or from a model you trained yourself. For example, here is a way to sample from the largest available `gpt2-xl` model:
-
-```sh
-python sample.py \
-    --init_from=gpt2-xl \
-    --start="What is the answer to life, the universe, and everything?" \
-    --num_samples=5 --max_new_tokens=100
+```bash
+python eval_bpb.py
 ```
 
-If you'd like to sample from a model you trained, use the `--out_dir` to point the code appropriately. You can also prompt the model with some text from a file, e.g. ```python sample.py --start=FILE:prompt.txt```.
+### 7. Export clean model (~30MB)
 
-## efficiency notes
+```bash
+python export_model.py
+python verify.py
+```
 
-For simple model benchmarking and profiling, `bench.py` might be useful. It's identical to what happens in the meat of the training loop of `train.py`, but omits much of the other complexities.
+---
 
-Note that the code by default uses [PyTorch 2.0](https://pytorch.org/get-started/pytorch-2.0/). At the time of writing (Dec 29, 2022) this makes `torch.compile()` available in the nightly release. The improvement from the one line of code is noticeable, e.g. cutting down iteration time from ~250ms / iter to 135ms / iter. Nice work PyTorch team!
+## The config that hits 30.7MB
 
-## todos
+```python
+# config/train_myslm.py
 
-- Investigate and add FSDP instead of DDP
-- Eval zero-shot perplexities on standard evals (e.g. LAMBADA? HELM? etc.)
-- Finetune the finetuning script, I think the hyperparams are not great
-- Schedule for linear batch size increase during training
-- Incorporate other embeddings (rotary, alibi)
-- Separate out the optim buffers from model params in checkpoints I think
-- Additional logging around network health (e.g. gradient clip events, magnitudes)
-- Few more investigations around better init etc.
+n_layer  = 4      # transformer layers
+n_head   = 4      # attention heads per layer
+n_embd   = 256    # vector dimension — the main size knob
 
-## troubleshooting
+batch_size                  = 8
+gradient_accumulation_steps = 16   # effective batch = 128
+block_size                  = 256  # context window
+learning_rate               = 5e-4
+max_iters                   = 10000
+device                      = 'cuda'
+dtype                       = 'float16'
+```
 
-Note that by default this repo uses PyTorch 2.0 (i.e. `torch.compile`). This is fairly new and experimental, and not yet available on all platforms (e.g. Windows). If you're running into related error messages try to disable this by adding `--compile=False` flag. This will slow down the code but at least it will run.
+The math: `(vocab × n_embd × 2) + (n_layer × 8 × n_embd²)` ≈ 16M params.
+At fp16 (2 bytes per param) that's ~32MB before PyTorch file overhead.
+Weight tying (sharing the embedding and output head) saves another ~24MB
+that would otherwise be duplicated in the checkpoint.
 
-For some context on this repository, GPT, and language modeling it might be helpful to watch my [Zero To Hero series](https://karpathy.ai/zero-to-hero.html). Specifically, the [GPT video](https://www.youtube.com/watch?v=kCc8FmEb1nY) is popular if you have some prior language modeling context.
+---
 
-For more questions/discussions feel free to stop by **#nanoGPT** on Discord:
+## What I learned building this
 
-[![](https://dcbadge.vercel.app/api/server/3zy8kqD9Cp?compact=true&style=flat)](https://discord.gg/3zy8kqD9Cp)
+**Day 0:** No knowledge of how language models work internally.
 
-## acknowledgements
+**Day 1:** Built a working transformer from scratch.
 
-All nanoGPT experiments are powered by GPUs on [Lambda labs](https://lambdalabs.com), my favorite Cloud GPU provider. Thank you Lambda labs for sponsoring nanoGPT!
+Along the way:
+- How attention actually works — Q, K, V projections, causal masking
+- Why residual connections exist (without them, gradients vanish at depth)
+- What loss in nats means and how it maps to bits-per-byte
+- Why the embedding table dominates parameter count at small vocab sizes
+- How weight tying works and why it matters for file size
+- The difference between a training checkpoint (184MB) and an inference model (30.7MB)
+- Why `batch_size × gradient_accumulation_steps` is what actually matters, not either alone
+
+---
+
+## What comes next
+
+This is version 1. The competition target is **under 16MB** with the best
+possible bits-per-byte score on enwik8 (Wikipedia benchmark).
+
+The path from here:
+
+| Step | Change | Expected size |
+|---|---|---|
+| This repo | n_embd=256, TinyStories | 30.7 MB |
+| Next | n_embd=128, enwik8 training | ~8 MB |
+| Competition | int8 quant + better tokenizer | <16 MB |
+
+The OpenAI leaderboard leader currently scores **1.2244 bpb**.
+The goal is to get as close to that as possible within the 16MB limit.
+
+---
+
+## Hardware
+
+Trained on a laptop GPU — RTX 3050 4GB VRAM. No cloud. No expensive setup.
+The config is specifically tuned for 4GB VRAM constraints:
+
+- `dtype=float16` halves memory vs float32
+- `batch_size=8` keeps activations within 4GB
+- `gradient_accumulation_steps=16` recovers the effective batch size
+
+Total VRAM used during training: ~1.2GB of the available 4GB.
+
+---
+
+## Based on
+
+Architecture from [karpathy/nanoGPT](https://github.com/karpathy/nanoGPT).
+Dataset: [roneneldan/TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories).
+Tokenizer: [tiktoken](https://github.com/openai/tiktoken) gpt2 encoding.
+
+---
+
+*Built for the OpenAI Parameter Golf competition — targeting sub-16MB models
+with competitive bits-per-byte scores. This 30.7MB model is the proof of
+concept. The competition build comes next.*
