@@ -1,4 +1,4 @@
-# TamilSLM — A 30.7MB Language Model Built in One Day
+# Syndra — A 30.7MB Language Model Built in One Day
 
 > *"I had zero knowledge about language models. I built one anyway."*
 
@@ -199,9 +199,6 @@ The path from here:
 | Next | n_embd=128, enwik8 training | ~8 MB |
 | Competition | int8 quant + better tokenizer | <16 MB |
 
-The OpenAI leaderboard leader currently scores **1.2244 bpb**.
-The goal is to get as close to that as possible within the 16MB limit.
-
 ---
 
 ## Hardware
@@ -225,6 +222,3 @@ Tokenizer: [tiktoken](https://github.com/openai/tiktoken) gpt2 encoding.
 
 ---
 
-*Built for the OpenAI Parameter Golf competition — targeting sub-16MB models
-with competitive bits-per-byte scores. This 30.7MB model is the proof of
-concept. The competition build comes next.*
