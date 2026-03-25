@@ -1,6 +1,6 @@
 # Syndra
 
-A 30.7MB language model built from scratch in one day.
+A 30.7MB language model built from scratch in one week.
 
 No pretrained weights were downloaded. No APIs were called. No cloud was used.
 Just a transformer architecture, a dataset, a 4GB GPU, and a training loop
