@@ -24,7 +24,7 @@ This repository documents the full pipeline: data preparation â†’ tokenization â
 | **Architecture** | 4 layers / 4 heads / 256 dim |
 | **Val loss** | 1.7955 nats |
 | **Training steps** | 10,000 |
-| **Training time** | ~4 hours |
+| **Training time** | ~6 hours |
 | **GPU** | RTX 3050 4GB VRAM |
 | **Dataset** | TinyStories (roneneldan/TinyStories) |
 | **Tokenizer** | GPT-2 BPE (tiktoken, vocab 50,257) |
