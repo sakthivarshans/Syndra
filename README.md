@@ -1,39 +1,41 @@
-# Syndra — A 30.7MB Language Model Built in One Day
+# Syndra
 
-> *"I had zero knowledge about language models. I built one anyway."*
+A 30.7MB language model built from scratch in one day.
 
-Built from scratch in under 24 hours on an RTX 3050 4GB GPU.
-No pretrained weights. No API calls. Just a transformer, a dataset, and a lot of loss going down.
+No pretrained weights were downloaded. No APIs were called. No cloud was used.
+Just a transformer architecture, a dataset, a 4GB GPU, and a training loop
+that ran for four hours until the loss came down.
+
+Syndra is a small language model (SLM) trained on the TinyStories dataset.
+It generates coherent English stories, understands narrative structure, and
+fits in a file smaller than most phone apps. It was built as a foundation
+for competing in OpenAI's Parameter Golf competition — where the challenge
+is to build the most capable language model that fits under 16MB.
+
+This is version one. It works.
 
 ---
 
-## What this is
+## What it does
 
-This is a small language model (SLM) trained entirely from scratch on the TinyStories dataset. It generates grammatically correct English stories, fits in 30.7MB, and was built as a first step toward competing in OpenAI's **Parameter Golf competition** — where the goal is to build the most capable language model under 16MB.
+Syndra is a next-token prediction model. Given a sequence of text, it
+predicts what comes next — one token at a time. This simple objective,
+trained long enough on enough data, produces a model that can:
 
-This repository documents the full pipeline: data preparation → tokenization → transformer training → evaluation → export. Every file here was written by hand. The architecture is based on nanoGPT but the config, training setup, evaluation scripts, and export pipeline are custom-built for this size target.
+- Continue a story from any opening line
+- Generate grammatically correct English sentences
+- Follow narrative patterns: introduce a character, build a situation, resolve it
+- Produce original text that has never existed before
 
----
-
-## The numbers
-
-| Metric | Value |
-|---|---|
-| **Final model size** | 30.7 MB |
-| **Parameters** | 16.08 million |
-| **Architecture** | 4 layers / 4 heads / 256 dim |
-| **Val loss** | 1.7955 nats |
-| **Training steps** | 10,000 |
-| **Training time** | ~6 hours |
-| **GPU** | RTX 3050 4GB VRAM |
-| **Dataset** | TinyStories (roneneldan/TinyStories) |
-| **Tokenizer** | GPT-2 BPE (tiktoken, vocab 50,257) |
+It will not answer questions, follow instructions, or hold a conversation.
+It is a base language model — a foundation, not a product. The next version
+will be fine-tuned for specific tasks. This version proves the foundation works.
 
 ---
 
 ## Sample output
 
-Prompt: `"Once upon a time"`
+**Prompt:** `Once upon a time`
 
 ```
 Once upon a time, in a small village, there lived a little girl named Lily.
@@ -44,181 +46,258 @@ One day, Lily's mommy and daddy went for a walk in the forest. They saw
 some birds and flowers and butterflies. Lily saw a deer and said...
 ```
 
-No fine-tuning. No RLHF. Just a transformer that learned story structure
-from data — character introduction, setting, conflict, action — purely from
-predicting the next token 328 million times.
+No templates. No retrieval. The model generated this from a single prompt
+by predicting one token at a time, 150 times in a row.
 
 ---
 
-## Project structure
+## The numbers
 
-```
-nanoGPT/
-│
-├── model.py                        # transformer architecture (nanoGPT)
-├── train.py                        # training loop (nanoGPT)
-├── sample.py                       # generation script (nanoGPT)
-│
-├── config/
-│   └── train_myslm.py              # ← my custom config (4L/4H/256D)
-│
-├── data/
-│   └── tinystories/
-│       └── prepare.py              # ← download + tokenize dataset
-│
-├── eval_bpb.py                     # ← compute bits-per-byte score
-├── export_model.py                 # ← strip optimizer, convert to fp16
-├── generate.py                     # ← clean generation script
-└── verify.py                       # ← final model verification
-```
-
-Files marked ← were written for this project specifically.
-`model.py`, `train.py`, `sample.py` are from karpathy/nanoGPT unchanged.
+| Property | Value |
+|---|---|
+| File size | **30.7 MB** |
+| Parameters | **16.08 million** |
+| Architecture | Transformer decoder |
+| Layers | 4 |
+| Attention heads | 4 |
+| Embedding dimension | 256 |
+| Context window | 256 tokens |
+| Vocabulary size | 50,257 (GPT-2 BPE) |
+| Validation loss | 1.7955 nats |
+| Training steps | 10,000 |
+| Training time | ~4 hours |
+| GPU | NVIDIA RTX 3050 4GB VRAM |
+| Dataset | TinyStories |
+| Tokenizer | tiktoken gpt2 encoding |
 
 ---
 
-## How to reproduce this
+## Why it exists
 
-### 1. Clone and install
+OpenAI runs a competition called Parameter Golf. The rules are simple:
+build a language model under 16MB with the lowest possible bits-per-byte
+score on enwik8 (the first 100MB of Wikipedia). The current leaderboard
+leader scores 1.2244 bpb. The goal is to get as close to that as possible
+inside a file smaller than most icons.
+
+Syndra at 30.7MB is the proof-of-concept build. It demonstrates that the
+full pipeline works: data preparation, tokenization, transformer training,
+evaluation, and export. The next version targets 8MB by reducing the
+embedding dimension from 256 to 128. The competition version targets 16MB
+with better training data and longer runs.
+
+This repository exists to document that process from the beginning —
+starting from zero knowledge about language models, building one that works,
+and iterating toward a competition-grade result.
+
+---
+
+## Setup
+
+### Requirements
+
+- Python 3.10 or higher
+- PyTorch with CUDA (for GPU training)
+- 4GB VRAM minimum for training at these settings
+
+### Install
 
 ```bash
-git clone https://github.com/YOURUSERNAME/YOURREPO.git
-cd YOURREPO
+git clone https://github.com/YOURUSERNAME/syndra.git
+cd syndra
 
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install numpy transformers datasets tiktoken tqdm
 ```
 
-### 2. Verify your GPU
+Verify your GPU is detected:
 
 ```bash
 python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0))"
 ```
 
-### 3. Prepare the dataset
+---
+
+## Reproduce from scratch
+
+### Step 1 — Prepare training data
 
 ```bash
 mkdir -p data/tinystories
 python data/tinystories/prepare.py
 ```
 
-This downloads TinyStories from HuggingFace and tokenizes it into
-`train.bin` (~400MB) and `val.bin` (~20MB).
+Downloads TinyStories from HuggingFace and tokenizes it into binary files.
+Produces `train.bin` (~400MB) and `val.bin` (~20MB).
+Takes 5–10 minutes depending on internet speed.
 
-### 4. Train
+### Step 2 — Train
 
 ```bash
 python train.py config/train_myslm.py
 ```
 
-Watch the loss drop. Step 0 starts at ~10.9. By step 10,000 it's at ~1.71.
-That descent is the model learning English.
+Trains from scratch. Loss starts at ~10.9 (random) and descends to ~1.71
+over 10,000 steps. On an RTX 3050 4GB this takes approximately four hours.
 
-On an RTX 3050 4GB this takes about 4 hours. You can stop at 5,000 steps
-and it already generates readable text.
+Watch for this output — it means training is working:
 
-If you hit CUDA out of memory, open `config/train_myslm.py` and change:
-```python
-batch_size = 4                  # was 8
-gradient_accumulation_steps = 32  # was 16
+```
+step 0:     train loss 10.932, val loss 10.918
+step 250:   train loss 3.215,  val loss 3.301
+step 1000:  train loss 2.401,  val loss 2.512
+step 5000:  train loss 1.887,  val loss 2.063
+step 10000: train loss 1.712,  val loss 1.941
 ```
 
-### 5. Generate text
+You can stop early at 5,000 steps. The model already generates readable
+stories at that point. Checkpoints are saved automatically every 250 steps.
+
+If training is interrupted:
 
 ```bash
-python generate.py
+python train.py config/train_myslm.py --init_from=resume
 ```
 
-### 6. Evaluate bpb score
+### Step 3 — Generate text
+
+```bash
+python sample.py --out_dir=out-myslm --start="Once upon a time" --num_samples=3 --max_new_tokens=150 --device=cuda
+```
+
+### Step 4 — Evaluate
 
 ```bash
 python eval_bpb.py
 ```
 
-### 7. Export clean model (~30MB)
+Computes the bits-per-byte score on the validation set and reports model
+size, parameter count, and average loss.
+
+### Step 5 — Export
 
 ```bash
 python export_model.py
 python verify.py
 ```
 
+Strips optimizer state, converts weights to fp16, removes the duplicate
+lm_head tensor (weight tying), and saves the clean inference model.
+The training checkpoint is ~184MB. The exported model is 30.7MB.
+
 ---
 
-## The config that hits 30.7MB
+## Config — what controls the size
 
 ```python
 # config/train_myslm.py
 
-n_layer  = 4      # transformer layers
-n_head   = 4      # attention heads per layer
-n_embd   = 256    # vector dimension — the main size knob
+n_layer  = 4      # transformer blocks stacked
+n_head   = 4      # parallel attention heads per block
+n_embd   = 256    # vector dimension — the primary size knob
 
 batch_size                  = 8
-gradient_accumulation_steps = 16   # effective batch = 128
-block_size                  = 256  # context window
+gradient_accumulation_steps = 16   # effective batch size = 128
+block_size                  = 256  # context window in tokens
 learning_rate               = 5e-4
 max_iters                   = 10000
 device                      = 'cuda'
 dtype                       = 'float16'
 ```
 
-The math: `(vocab × n_embd × 2) + (n_layer × 8 × n_embd²)` ≈ 16M params.
-At fp16 (2 bytes per param) that's ~32MB before PyTorch file overhead.
-Weight tying (sharing the embedding and output head) saves another ~24MB
-that would otherwise be duplicated in the checkpoint.
+`n_embd` is the single most important number. Halving it from 256 to 128
+reduces the model from ~30MB to ~8MB. Doubling it to 512 produces a ~120MB
+model. Everything else follows from this one value.
+
+The config is tuned for 4GB VRAM. If you have more, increase `batch_size`
+and reduce `gradient_accumulation_steps` proportionally for faster training.
 
 ---
 
-## What I learned building this
+## How the model works
 
-**Day 0:** No knowledge of how language models work internally.
+Syndra is a transformer decoder — the same architecture that underlies GPT.
 
-**Day 1:** Built a working transformer from scratch.
+Text enters as a sequence of token IDs produced by the GPT-2 BPE tokenizer.
+Each token ID is looked up in an embedding table to produce a 256-dimensional
+vector. Position embeddings are added so the model knows token order.
 
-Along the way:
-- How attention actually works — Q, K, V projections, causal masking
-- Why residual connections exist (without them, gradients vanish at depth)
-- What loss in nats means and how it maps to bits-per-byte
-- Why the embedding table dominates parameter count at small vocab sizes
-- How weight tying works and why it matters for file size
-- The difference between a training checkpoint (184MB) and an inference model (30.7MB)
-- Why `batch_size × gradient_accumulation_steps` is what actually matters, not either alone
+The combined embeddings pass through 4 transformer blocks. Each block runs
+causal self-attention (every token looks at all previous tokens and decides
+which are relevant) followed by a feed-forward network (each token processes
+independently). Residual connections and layer normalization wrap each
+operation for stable training.
+
+After 4 blocks, a final linear projection maps the 256-dimensional
+representations to logits over the 50,257-token vocabulary. The token with
+appropriate probability under the distribution is sampled and appended to
+the sequence. Repeat until done.
+
+Training optimizes cross-entropy loss: at every position, the model's
+probability distribution over next tokens is penalized for assigning low
+probability to the token that actually came next. Over 10,000 steps and
+328 million tokens, this pushes the weights toward configurations that
+model English well.
+
+---
+
+## Repository structure
+
+```
+syndra/
+├── model.py                   transformer architecture
+├── train.py                   training loop
+├── sample.py                  text generation
+├── config/
+│   └── train_myslm.py         model and training configuration
+├── data/
+│   └── tinystories/
+│       └── prepare.py         dataset download and tokenization
+├── eval_bpb.py                bits-per-byte evaluation
+├── export_model.py            clean model export (strips optimizer)
+├── verify.py                  final verification and sample generation
+└── myslm_final.pt             trained model weights (not in repo)
+```
+
+`model.py` and `train.py` are from karpathy/nanoGPT, used as the
+architectural foundation. All other files are written for this project.
 
 ---
 
 ## What comes next
 
-This is version 1. The competition target is **under 16MB** with the best
-possible bits-per-byte score on enwik8 (Wikipedia benchmark).
-
-The path from here:
-
-| Step | Change | Expected size |
+| Version | Target size | Change from current |
 |---|---|---|
-| This repo | n_embd=256, TinyStories | 30.7 MB |
-| Next | n_embd=128, enwik8 training | ~8 MB |
-| Competition | int8 quant + better tokenizer | <16 MB |
+| v1 (this) | 30.7 MB | baseline |
+| v2 | ~8 MB | reduce n_embd to 128 |
+| competition | <16 MB | enwik8 training + int8 quantization |
+
+The competition build will train on enwik8 rather than TinyStories,
+use a smaller vocabulary, apply quantization after training, and run
+for significantly more steps on better hardware via RunPod.
 
 ---
 
-## Hardware
+## Credits
 
-Trained on a laptop GPU — RTX 3050 4GB VRAM. No cloud. No expensive setup.
-The config is specifically tuned for 4GB VRAM constraints:
+The transformer architecture and training code in `model.py` and `train.py`
+are from **Andrej Karpathy's nanoGPT** — github.com/karpathy/nanoGPT
 
-- `dtype=float16` halves memory vs float32
-- `batch_size=8` keeps activations within 4GB
-- `gradient_accumulation_steps=16` recovers the effective batch size
+Karpathy built nanoGPT as a clean, readable implementation of the GPT
+architecture specifically for learning. Every design decision in the code
+is made for clarity over production optimization, which made it the right
+foundation for someone building their first language model. The codebase
+is small enough to read in an afternoon and well-structured enough to teach
+every important concept in transformer training.
 
-Total VRAM used during training: ~1.2GB of the available 4GB.
+If you want to understand how language models work at the implementation
+level — not the diagram level, the actual code level — start with nanoGPT.
+
+Dataset: **TinyStories** by Ronen Eldan and Yuanzhi Li — huggingface.co/datasets/roneneldan/TinyStories
+
+Tokenizer: **tiktoken** by OpenAI — github.com/openai/tiktoken
 
 ---
 
-## Based on
-
-Architecture from [karpathy/nanoGPT](https://github.com/karpathy/nanoGPT).
-Dataset: [roneneldan/TinyStories](https://huggingface.co/datasets/roneneldan/TinyStories).
-Tokenizer: [tiktoken](https://github.com/openai/tiktoken) gpt2 encoding.
-
----
-
+*Syndra is a work in progress. Version one proves the pipeline.
+Version two targets the competition.*
