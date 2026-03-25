@@ -80,8 +80,8 @@ by predicting one token at a time, 150 times in a row.
 ### Install
 
 ```bash
-git clone https://github.com/YOURUSERNAME/syndra.git
-cd syndra
+git clone https://github.com/sakthivarshans/Syndra.git
+cd Syndra
 
 pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 pip install numpy transformers datasets tiktoken tqdm
