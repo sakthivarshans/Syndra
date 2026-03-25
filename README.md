@@ -8,9 +8,7 @@ that ran for four hours until the loss came down.
 
 Syndra is a small language model (SLM) trained on the TinyStories dataset.
 It generates coherent English stories, understands narrative structure, and
-fits in a file smaller than most phone apps. It was built as a foundation
-for competing in OpenAI's Parameter Golf competition — where the challenge
-is to build the most capable language model that fits under 16MB.
+fits in a file smaller than most phone apps.
 
 This is version one. It works.
 
@@ -70,27 +68,6 @@ by predicting one token at a time, 150 times in a row.
 | Dataset | TinyStories |
 | Tokenizer | tiktoken gpt2 encoding |
 
----
-
-## Why it exists
-
-OpenAI runs a competition called Parameter Golf. The rules are simple:
-build a language model under 16MB with the lowest possible bits-per-byte
-score on enwik8 (the first 100MB of Wikipedia). The current leaderboard
-leader scores 1.2244 bpb. The goal is to get as close to that as possible
-inside a file smaller than most icons.
-
-Syndra at 30.7MB is the proof-of-concept build. It demonstrates that the
-full pipeline works: data preparation, tokenization, transformer training,
-evaluation, and export. The next version targets 8MB by reducing the
-embedding dimension from 256 to 128. The competition version targets 16MB
-with better training data and longer runs.
-
-This repository exists to document that process from the beginning —
-starting from zero knowledge about language models, building one that works,
-and iterating toward a competition-grade result.
-
----
 
 ## Setup
 
